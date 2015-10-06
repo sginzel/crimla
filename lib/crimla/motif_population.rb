@@ -1,6 +1,4 @@
-# hold many motifs
-require "motif"
-class MotifPopulation
+class Crimla::MotifPopulation
 	
 	attr_accessor :chr, :start, :stop, :length, :coverage, :consequences, :motif, :type, :exons
 	
@@ -47,7 +45,7 @@ class MotifPopulation
 		}.merge(opts)
 		# sort the motifs
 		opts[:motif].sort!{|m1, m2| m1[:start] <=> m2[:start]}
-		motif = Motif.new(opts)
+		motif = Crimla::Motif.new(opts)
 		if @MOTIFS[opts].nil? then
 			@MOTIFS[opts] = motif
 		else

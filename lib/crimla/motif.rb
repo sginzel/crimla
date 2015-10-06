@@ -1,5 +1,5 @@
 # http://guides.rubygems.org/make-your-own-gem/
-class Motif
+class Crimla::Motif
 	
 	attr_accessor :chr, :start, :stop, :length, :coverage, :consequences, :motif, :type
 	

@@ -4,17 +4,23 @@
 require "trollop"
 require "bio-samtools"
 require "bio-svgenes"
-require "ocra"
 require "csv"
 require "pp"
 
-require "parser"
-require "report"
+require "crimla"
 
 STDERR.puts $0  + " " + ARGV.join(" ") if ARGV.delete("--debug")
 
 no_args = ARGV.empty?
 opts = Trollop::options do
+	version "crimla 0.0.1 (c) 2015 Sebastian Ginzel"
+	banner <<-EOS
+CRIMLA - CRISPR Modified Landscape Analysis
+
+Usage:
+       crimla [options]
+where [options] are:
+EOS
 	# genomic information and bam configuration
 	opt :bam, "BAM file to process", :type => :strings, :short => "-b"
 	opt :ref, "reference file in fasta format", :type => :string
@@ -63,15 +69,14 @@ Signal.trap("SIGINT") do
 end
 
 def process(opts)
-	p = Parser.new()
+	p = Crimla::Parser.new()
 	mp = p.process(opts)
-	r = Report.new(mp, p)
+	r = Crimla::Report.new(mp, p)
 	r.generate(opts)
 	
 end
 
-# check if we run in irb
-if $0 == __FILE__ then
+if !no_args then
 	raise Trollop::educate if no_args
 	
 	Trollop::die :ref, "Please give coordinates and use CHR:FROM-TO format" unless !(opts[:coord].nil?) and opts[:coord] =~ /^[chrCHR]*[0-9XYM]+:[0-9,]+-[0-9,]+$/
@@ -101,6 +106,6 @@ if $0 == __FILE__ then
 		process(bamopts)
 	end
 else
-	puts "IRB detected - not parsing paramters..."
+	raise Trollop::educate
 end
 

@@ -1,4 +1,4 @@
-class Report
+class Crimla::Report
 	
 	def initialize(motif_population, parser)
 		@population = motif_population

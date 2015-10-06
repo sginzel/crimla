@@ -1,10 +1,4 @@
-require "report"
-require "motif"
-require "motif_population"
-
-# Class used to 
-
-class Parser
+class Crimla::Parser
 	
 	@@cigarex = Regexp.new(/(([0-9]+)([MSID]))/) # split cigar by operands - this does not include N and P operands. H operand is also not included as it does not contribute to the coordinates.
 	
@@ -67,7 +61,7 @@ class Parser
 			}
 		end
 		
-		mp = MotifPopulation.new(chr: chr, start: start, stop: stop, exons: exons)
+		mp = Crimla::MotifPopulation.new(chr: chr, start: start, stop: stop, exons: exons)
 		
 		cnt = 0
 		@count = {total: 0, pairs: 0, skipped_qual: 0, skipped_len: 0, skipped: 0, parsed: 0, "no-overlap" => 0, wt: 0, motif: 0, off_target: 0}
