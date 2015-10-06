@@ -1,0 +1,106 @@
+#!/usr/bin/env ruby
+
+# INIT #
+require "trollop"
+require "bio-samtools"
+require "bio-svgenes"
+require "ocra"
+require "csv"
+require "pp"
+
+require "parser"
+require "report"
+
+STDERR.puts $0  + " " + ARGV.join(" ") if ARGV.delete("--debug")
+
+no_args = ARGV.empty?
+opts = Trollop::options do
+	# genomic information and bam configuration
+	opt :bam, "BAM file to process", :type => :strings, :short => "-b"
+	opt :ref, "reference file in fasta format", :type => :string
+	opt :coord, "coordinates to find amplicons", :type => :string
+	opt :tail, "number of bp to add to coord on both sides", :type => :integer, default: 0
+	opt :exons, "Coordinates of the targeted exon (start-stop)", :type => :strings, default: []
+	opt :atg, "Position of the ATG motif in the exon", :type => :string, default: nil
+	opt :paired, "reads are paired?", :type => :boolean, default: true
+	# parse information
+	opt :snvs, "Include SNVs in motifs?", :type => :boolean, default: true
+	opt :skip, "number of reads to skip", :type => :integer, default: 0
+	opt "stop-after", "Stop processing N reads", :type => :integer, default: 0
+	opt :qnames, "List or file of read names to process", :type => :strings, default: []
+	# read quality filter 
+	opt "min-len", "minimum length of read (after clipping)", default: 60
+	opt "mapping-quality", "include hard clipped bases", :type => :integer, default: 50
+	opt "overlap-only", "only consider motifs that are supported by both read pair members.", :type => :boolean, default: true
+	opt "min-overlap", "Only consider read pairs that overlap at least this many bases. Can be negative to indicate maximum allowed distance between read pairs.", :type => :integer, default: 0
+	opt "min-base-quality", "minimum base quality to consider SNVs", :type => :integer, default: 30
+	# post processing / filtering of motifs
+	opt "min-motif-count", "minimum count of motif after parsing", default: 10
+	opt "purity-ploidy", "Number of expected chromosomes used to calculate the purity index", default: 2
+	opt "tolerated-indel-len", "maximum length of inframe motifs to still be predicted harmless. Do not use this to make your knock-out look more successful. Use it ONLY if you know what you are doing.", default: -1#, :short => "-ml"
+	opt :coverage, "calculate coverages per motif", :type => :boolean, default: true
+	opt "coverage-global", "Show global coverage", :type => :boolean, default: true
+	opt "coverage-motif", "Show coverage for every motif (recommended for single-end reads)", :type => :boolean, default: false
+	opt :top, "show top N motifs", :type => :integer, default: 50
+	opt :csv, "filename of the CSV file to produce", :type => :string, default: nil
+	opt :svg, "filename of the SVG file to produce", :type => :string, default: nil
+end
+
+@stop_processing = false
+Signal.trap("SIGINT") do 
+	if !@stop_processing then
+		user_input = ""
+	
+		while !(user_input == "a" or user_input == "s")
+			STDOUT.puts "Ctrl+C detected. Do you want to [a]bort the program or [s]kip further processing and create the report from the parsed data?"
+			user_input = STDIN.read(1).strip
+		end
+		exit 1 if user_input == "a"
+		@stop_processing = true # make the next Ctrl+C exit
+	else
+		exit 1
+	end
+end
+
+def process(opts)
+	p = Parser.new()
+	mp = p.process(opts)
+	r = Report.new(mp, p)
+	r.generate(opts)
+	
+end
+
+# check if we run in irb
+if $0 == __FILE__ then
+	raise Trollop::educate if no_args
+	
+	Trollop::die :ref, "Please give coordinates and use CHR:FROM-TO format" unless !(opts[:coord].nil?) and opts[:coord] =~ /^[chrCHR]*[0-9XYM]+:[0-9,]+-[0-9,]+$/
+	Trollop::die :bam, "must exist" unless !(opts[:bam].nil?) and opts[:bam].all?{|bam|
+		bam = Dir[bam].select{|fname| fname =~ /.*\.bam$/}
+		bam.each do |bamfile|
+			File.exist?(bamfile)
+		end
+	}
+	Trollop::die :ref, "must exist" unless !(opts[:ref].nil?) and File.exist?(opts[:ref])
+	
+	bams = opts[:bam].map{|bam|
+		bam = Dir[bam].select{|fname| fname =~ /.*\.bam$/}
+		bam
+	}.flatten
+	
+	puts "No bam files found in #{opts[:bames]}" if bams.size == 0
+	
+	bams.each do |bam|
+		bamopts = opts.dup
+		if bams.size > 1 then
+			# modify svg and csv parameters
+			bamopts[:svg] = File.join(File.dirname(File.expand_path(opts[:svg])), "#{File.basename(bamopts[:svg], ".svg")}_#{File.basename(bam, ".bam")}.svg") unless bamopts[:svg].nil?
+			bamopts[:csv] = File.join(File.dirname(File.expand_path(opts[:csv])), "#{File.basename(bamopts[:csv], ".csv")}_#{File.basename(bam, ".bam")}.csv") unless bamopts[:csv].nil?
+		end
+		bamopts[:bam] = bam
+		process(bamopts)
+	end
+else
+	puts "IRB detected - not parsing paramters..."
+end
+
